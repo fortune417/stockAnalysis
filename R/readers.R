@@ -112,7 +112,17 @@ get_term_dict<-function() {
     "Payout Ratio","payoutRatio",
     "Interest Expense / Income", "interestExpense",
     "Preferred Dividends", "preferredDividends",
-    "Net Income Common", "netIncome"
+    "Net Income Common", "netIncome",
+    "Asset Turnover", "assetTurnover",
+    "Dividend Yield", "dividendYield",
+    "Cash Growth (yoy)", "cashGrowthYoY",
+    "Debt Growth (yoy)", "debtGrowthYoY",
+    "Net cash / Debt growth (yoy)", "netCashGrowthYoY",
+    "Free Cash Flow Growth (yoy)", "fcfGrowthYoY",
+    "Revenue Growth (yoy)", "revenueGrowthYoY",
+    "Shares Change (yoy)", "shareCountChangeYoY",
+    "Eps Growth (yoy)", "epsGrowthYoY",
+    "Dividend Growth (yoy)", "dividendGrowthYoY"
   )
   nameDict<-unique(matrix(nameDict, nc=2, byrow = T))
   stopifnot(!any(duplicated(nameDict[,1])))
@@ -153,6 +163,9 @@ read_financials<-function(ticker,
   cfObj<-read_cash_flow(file.path(srcDir, cfFile), src=src)
   isObj<-read_income_statement(file.path(srcDir, isFile), src=src)
   ratioObj<-read_financial_ratios(file.path(srcDir, ratioFile), src=src)
+  if(!all(is.matrix(bsObj), is.matrix(cfObj), is.matrix(isObj), is.matrix(ratioObj))) {
+    return(NA)
+  }
   # combine all data into one
   stopifnot(ncol(bsObj)==ncol(cfObj)
             && ncol(bsObj)==ncol(isObj))
@@ -186,7 +199,10 @@ read_sa_file<-function(f) {
   ext<-tools::file_ext(f)
   if(ext == "") # no extension
   { f<-paste0(f, ".xlsx") }
-  stopifnot(file.exists(f))
+  if(!file.exists(f)) {
+    message(sprintf("File '%s' doesn't exist", f))
+    return(NA)
+  }
   requiredPkgs<-c("readxl", "data.table")
   for(pkg in requiredPkgs) {
     if(!requireNamespace(pkg, quietly = T)) {
@@ -201,7 +217,16 @@ read_sa_file<-function(f) {
   varNames<-standardize_var_names(varNames)
   rownames(dat)<-varNames
   # sort data columns with latest first
-  dat<-dat[,order(-as.numeric(colnames(dat)))]
+  if(grepl("\\.", colnames(dat)[1])) { # quarterly data
+    # convert column names to dates
+    colNames<-as.Date(
+        as.numeric(colnames(dat)),
+        origin = '1899-12-30')
+    colnames(dat)<-format(colNames, "%Y-%m-%d")
+    dat<-dat[, rev(order(colNames))]
+  }else { # yearly data
+    dat<-dat[,order(-as.numeric(colnames(dat)))]
+  }
   return(dat)
 }
 
