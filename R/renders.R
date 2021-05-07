@@ -1,5 +1,6 @@
 # functions to present the data
 
+
 #' Convert matrix to a vector
 #'
 matrix_to_vec<-function(mat, sep=".") {
