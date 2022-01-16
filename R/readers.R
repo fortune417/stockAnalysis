@@ -136,16 +136,21 @@ get_term_dict<-function() {
 #' This function reads the financial data of a company
 #' given a stock symbol
 #'
-#' @param ticker A stock symbol, such as 'AAPL'
+#' @param ticker A stock symbol, such as 'AAPL'\
+#' @param src Data source, currently support "sa" (stockanalysis.com) and 'mt' (macrotrends.net)
+#' @param srcDir As an alternative to src, one can directly provide the folder containing the data files
 #'
 #' @return an object of FinData
 #' @export
 read_financials<-function(ticker,
-                          src=c("sa","mt"),
+                          src=c("sa","mt","fmp", "sec"),
                           period=c("annual","quarterly"),
-                          srcDir=NULL) {
+                          srcDir=NULL, ...) {
   if(is.null(srcDir)) {
     src<-match.arg(src)
+	if(src %in% c("fmp","sec")) {
+		stop(glue::glue("data source '{src}' is not implemented yet"))
+	}
     srcDir<-system.file(file.path("extdata", src), package = "stockAnalysis")
   }
   if(srcDir == "") {
@@ -166,10 +171,16 @@ read_financials<-function(ticker,
   if(!all(is.matrix(bsObj), is.matrix(cfObj), is.matrix(isObj), is.matrix(ratioObj))) {
     return(NA)
   }
-  # combine all data into one
-  stopifnot(ncol(bsObj)==ncol(cfObj)
-            && ncol(bsObj)==ncol(isObj))
-  mat<-rbind(bsObj, cfObj, isObj)
+  # combine all data into one, including raios
+  if(!( ncol(bsObj)==ncol(cfObj)
+            && ncol(bsObj)==ncol(isObj)
+			&& ncol(bsObj)==ncol(ratioObj)))
+  {
+	warning(glue::glue("The input dates for '{ticker}' differ: bs {ncol(bsObj)}, cf {ncol(cfObj)}, is {ncol(isObj)}, ratio {ncol(ratioObj)}"))
+  }
+  tmpd<-merge.FinData(isObj, bsObj)
+  tmpd<-merge.FinData(tmpd, cfObj)
+  mat<-merge.FinData(tmpd, ratioObj)
   # further process duplicate rows, such as fcfps, caused by
   # different coding for negative values
   rows_to_remove<-function(mat, varName) {
@@ -185,13 +196,41 @@ read_financials<-function(ticker,
     rowIdx<-do.call(c, rowIdx)
     mat<-mat[-rowIdx,]
   }
+  # construct the S3 object with classes and attrs
   structure(mat,
             class=c(class(mat), "FinData"),
-            period=period, ratio=ratioObj
+            period=period
           )
 }
 
+#' Merge FinData
+#' 
+#' @param a,b Two FinData objects.
+#' @param recentFirst logical, if TRUE (default), the most recent data will
+#'    be listed first.
+#'
+merge.FinData<-function(x,y,mergeType=c("union","inter"), recentFirst=T, ...) {
+	mergeType<-match.arg(mergeType)
+	if(mergeType != "union") {
+		stop(glue::glue("The mergeType '{mergeType}' for 'FinData' has not implemented"))
+	}
+	# merge the two datesets first
+	dat<-base::merge(t(x),t(y),by=0,all=T)
+	## remove suffixes for duplicate columns
+	colnames(dat)<-sub("\\.[xy]$","", colnames(dat))
+	rownames(dat)<-dat[["Row.names"]]
+	dat[["Row.names"]]<-NULL
+	# get the union of dates
+	allDates<-sort(union(colnames(x), colnames(y)), decreasing=recentFirst)
+	dat<-dat[allDates,] # order the data
+	dat<-t(as.matrix(dat)) # convert to matrix and transpose
+	return(dat)
+}
+
 #' Read excel file downloaded from stockAnalysis
+#'
+#' Read the data downloaded from stockanalysis.com and format them
+#' into standard format with standard vocabulary.
 #'
 #' @keywords internal
 #'
@@ -219,9 +258,13 @@ read_sa_file<-function(f) {
   # sort data columns with latest first
   if(grepl("\\.", colnames(dat)[1])) { # quarterly data
     # convert column names to dates
+	## Excel uses 1900-01-01 as day 1 (Windows default) or
+	## 1904-01-01 as day 0 (Mac default), so use "1899-12-30"
+	## and "1904-01-01" as origins, respectively. See more
+	## at  http://support.microsoft.com/kb/214330
     colNames<-as.Date(
         as.numeric(colnames(dat)),
-        origin = '1899-12-30')
+        origin = '1899-12-31')
     colnames(dat)<-format(colNames, "%Y-%m-%d")
     dat<-dat[, rev(order(colNames))]
   }else { # yearly data
@@ -234,7 +277,7 @@ read_sa_file<-function(f) {
 #'
 #' @param varNames A vector of variable names
 #'
-#' @return updated variable names
+#' @return standardized variable names
 #'
 #' @keywords internal
 standardize_var_names<-function(varNames) {
@@ -279,6 +322,7 @@ read_cash_flow<-function(f, src=c("sa","mt")) {
   src<-match.arg(src)
   reader<-switch (src,
                   sa = read_sa_file,
+				  stop(glue::glue("Unsupported data source: {src}"))
   )
   if(is.null(reader)) {
     stop(src, " is not implemented")
@@ -317,4 +361,11 @@ read_financial_ratios<-function(f, src=c("sa","mt")) {
     stop(src, " is not implemented")
   }
   reader(f)
+}
+
+#' Get stock price
+#'
+get_stock_price<-function(tickers, ...) {
+	options("getSymbols.warning4.0"=FALSE)
+	quantmod::getSymbols(tickers, ..., auto.assign=FALSE)
 }
