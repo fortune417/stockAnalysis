@@ -136,7 +136,7 @@ get_term_dict<-function() {
 #' This function reads the financial data of a company
 #' given a stock symbol
 #'
-#' @param ticker A stock symbol, such as 'AAPL'\
+#' @param ticker A stock symbol, such as 'AAPL'
 #' @param src Data source, currently support "sa" (stockanalysis.com) and 'mt' (macrotrends.net)
 #' @param srcDir As an alternative to src, one can directly provide the folder containing the data files
 #'
@@ -146,8 +146,8 @@ read_financials<-function(ticker,
                           src=c("sa","mt","fmp", "sec"),
                           period=c("annual","quarterly"),
                           srcDir=NULL, ...) {
+  src<-match.arg(src)
   if(is.null(srcDir)) {
-    src<-match.arg(src)
 	if(src %in% c("fmp","sec")) {
 		stop(glue::glue("data source '{src}' is not implemented yet"))
 	}
@@ -176,7 +176,7 @@ read_financials<-function(ticker,
             && ncol(bsObj)==ncol(isObj)
 			&& ncol(bsObj)==ncol(ratioObj)))
   {
-	warning(glue::glue("The input dates for '{ticker}' differ: bs {ncol(bsObj)}, cf {ncol(cfObj)}, is {ncol(isObj)}, ratio {ncol(ratioObj)}"))
+	message(glue::glue("The input dates for '{ticker}' differ: bs {ncol(bsObj)}, cf {ncol(cfObj)}, is {ncol(isObj)}, ratio {ncol(ratioObj)}"))
   }
   tmpd<-merge.FinData(isObj, bsObj)
   tmpd<-merge.FinData(tmpd, cfObj)
@@ -195,6 +195,11 @@ read_financials<-function(ticker,
     rowIdx<-lapply(dupVars, rows_to_remove, mat=mat)
     rowIdx<-do.call(c, rowIdx)
     mat<-mat[-rowIdx,]
+  }
+  # check whether recent data have NA revenue, if so, remove them
+  firstColIndex<-which.max(!is.na(mat["revenue", ]))
+  if(firstColIndex > 1) {
+	mat<-mat[, firstColIndex:ncol(mat)]
   }
   # construct the S3 object with classes and attrs
   structure(mat,
@@ -215,7 +220,7 @@ merge.FinData<-function(x,y,mergeType=c("union","inter"), recentFirst=T, ...) {
 		stop(glue::glue("The mergeType '{mergeType}' for 'FinData' has not implemented"))
 	}
 	# merge the two datesets first
-	dat<-base::merge(t(x),t(y),by=0,all=T)
+	suppressWarnings(dat<-base::merge(t(x),t(y),by=0,all=T))
 	## remove suffixes for duplicate columns
 	colnames(dat)<-sub("\\.[xy]$","", colnames(dat))
 	rownames(dat)<-dat[["Row.names"]]
