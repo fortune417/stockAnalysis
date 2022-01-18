@@ -267,7 +267,8 @@ get_stock_value<-function(ticker, src="sa",
   minPS<-PSsummary$ps["min"]
   meanPS<-PSsummary$ps["mean"]
   curPS<-datYear["ps",1]
-  curSPS<-ifelse(all(c('revenue', 'shareCountDiluted') %in% rownames(datYear)), datYear['revenue',1]/datYear['shareCountDiluted',1], NA)
+  shareCountVar<-ifelse("shareCountDiluted" %in% rownames(datYear), "shareCountDiluted", "shareCountBasic")
+  curSPS<-ifelse(all(c('revenue', shareCountVar) %in% rownames(datYear)), datYear['revenue',1]/datYear[shareCountVar,1], NA)
   
   # we will compute DCF values for the following combinations:
   #               minPE, meanPE, minPS, meanPS
@@ -328,10 +329,10 @@ get_stock_value<-function(ticker, src="sa",
 			quarter.last=latestQuarter,
 			quarter.first=oldestQuarter,
 			matrix_to_vec(dcfRates),
-			minPE=minPE,
-			meanPE=meanPE,
-			minPS=minPS,
-			meanPS=meanPS,
+			minPE = unname(minPE ),
+			meanPE= unname(meanPE),
+			minPS = unname(minPS ),
+			meanPS= unname(meanPS),
 			matrix_to_vec(estVals_minPE),
 			matrix_to_vec(estVals_meanPE),
 			matrix_to_vec(estVals_minPS),
@@ -425,9 +426,10 @@ get_stocks_values<-function(tickers, ...) {
 #' @return A vector with names
 
 calc_health_indice<-function(datYear, datQuarter) {
+  shareCountVar<-ifelse("shareCountDiluted" %in% rownames(datYear), "shareCountDiluted", "shareCountBasic")
   varNamesForRatiosQuarter<-c("totalDebt",
                        "shareholderEquity",
-                       "shareCountDiluted",
+                       shareCountVar,
                        "netCashDebt")
   varNamesForRatiosYear<-c("ebitda",
                            "freeCashFlow",
@@ -439,7 +441,7 @@ calc_health_indice<-function(datYear, datQuarter) {
   # for expontential
   varNamesForRates2<-c("freeCashFlow",
 					   "totalDebt",
-                      "shareCountDiluted")
+                      shareCountVar)
   # get latest values (some values only available in yearly data)
   values1<-summarize_dat(datQuarter, varNames=varNamesForRatiosQuarter, period=1, method="asis")
   values2<-summarize_dat(datYear, varNames=varNamesForRatiosYear, period=1, method="asis")
@@ -449,12 +451,13 @@ calc_health_indice<-function(datYear, datQuarter) {
   debtToFcf<-values["totalDebt"]/values["freeCashFlow"]
   debtToEbitda<-values["totalDebt"]/values["ebitda"]
   curRatio<-ifelse("curRatio" %in% names(values), values["curRatio"], NA)
-  res<-c(values["revenue"], values["shareCountDiluted"],
+  res<-c(values["revenue"], values[shareCountVar],
          values["netCashDebt"],
          debtToFcf=debtToFcf,
          debtToEbitda=debtToEbitda,
          debtToEquity=debtToEquity,
 		 curRatio=curRatio)
+  names(res)[2]<-"shareCount"
   # also compute the average of the last 5 years, use yearly data only
   values1<-summarize_dat(datYear, varNames=varNamesForRatiosQuarter, period=5, method="asis")
   values2<-summarize_dat(datYear, varNames=varNamesForRatiosYear, period=5, method="asis")
