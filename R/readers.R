@@ -368,9 +368,60 @@ read_financial_ratios<-function(f, src=c("sa","mt")) {
   reader(f)
 }
 
-#' Get stock price
+#' Get stocks' price
 #'
-get_stock_price<-function(tickers, ...) {
+#' This function reports stock prices in a given period.
+#'
+#' @param to The last day to report. Default is today.
+#' @param from The fist day to report. This parameter has higher priority than
+#'  `span` (see below).
+#' @param span An integer to provide the days, months, or years before the date
+#'	given by `to`. If both `from` and `span` are `NA`s, then
+#'	realtime current stock quote will be returned. 
+#' @param units Time unit for the value provided by `span`.
+#' 
+#' @return A data.frame for realtime data (rows are tickers), and a list for
+#'  historical data.
+#' @export
+get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, units=c("days","months", "years"), ...) {
 	options("getSymbols.warning4.0"=FALSE)
-	quantmod::getSymbols(tickers, ..., auto.assign=FALSE)
+	if(is.na(span) && is.na(from)) { # real time data
+		quoteInfo<-quantmod::yahooQF(c("Last Trade (Price Only)", 
+							"Change in Percent", 
+							"Days High",
+							"Days Low",
+							"Volume",
+							"Percent Change From 50-day Moving Average", 
+							"Percent Change From 200-day Moving Average",
+							"Dividend Yield",
+							"Price/Book",
+							"P/E Ratio"))
+		return(quantmod::getQuote(tickers, what=quoteInfo))
+	}
+	# otherwise historical data
+	if(is.na(from)) {
+		units<-match.arg(units)
+		durationMethod<-switch( units,
+			days = lubridate::days,
+			months = lubridate::months,
+			years = lubridate::years,
+			stop(glue::glue("Unknown time units: {units}"))
+			)
+		from<-lubridate::add_with_rollback(to, -durationMethod(span))
+	}
+	prices<-lapply(tickers, function(x) {
+							price<-tryCatch(suppressWarnings(
+									quantmod::getSymbols(x, from=from, to=to+1, auto.assign=FALSE, ...)
+									),
+								error=function(e) { warning(glue::glue("Ticker '{x}' has no historical data")); return(NULL) }
+								)
+							if(!is.null(price)) { # ticker from column headers
+								colnames(price)<-sub(paste("^",x,"\\.",sep=""),"", colnames(price))
+							}
+							return(price)
+							}
+				   )
+	names(prices)<-tickers
+	return(prices)
 }
+
