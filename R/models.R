@@ -160,41 +160,14 @@ dcf<-function(profits, usePS=FALSE,
   return(dcfValue)
 }
 
-dcf0<-function(profits, n=5, g=0.05, r=0.1,
-              payout=0,
-              twoStage=F,
-              terminalModel=c("multiple","perpetual"),
-              multiple=10, terminalG=0.05) {
-  # compute the accumulated profits.
-  if(length(profits) > 1) {
-    n<-length(profits)
-  }else { # compute profits based on growth
-    # get the growth rates for each year
-    if(length(g)==1 && twoStage) {
-      g<-c(g, g*0.5) # cut half for second half time span
-    }
-    if(length(g)>1) {
-      spans<-divide_span(n, length(g))
-      g<-rep(g, times=spans)
-      growths<-cumprod(1+g)
-    } else {
-      growths<-(1+g)^seq_len(n)
-    }
-    profits<-profits*growths
-  }
-  discountedProfits<-profits/((1+r)^seq_len(n))
-  payouts<-discountedProfits*payout
-  terminalProfit<-discountedProfits[n]
-  terminalModel<-match.arg(terminalModel)
-  terminalValue<-switch(terminalModel,
-         multiple = terminalProfit*multiple,
-         perpetual = ifelse(r > terminalG,
-           terminalProfit*(1+terminalG)/(r-terminalG),
-           stop("'Perpetual terminal model' is invalid for r <= g")
-          )
-         )
-  return(sum(payouts) + terminalValue)
-}
+#' Divide a range into smaller ones
+#'
+#' @param size the size of the range.
+#' @param n the number of smaller ranges to hold the range
+#'
+#' @return a vector with size in each smaller ranges.
+#' @keyword internal
+
 
 divide_span<-function(size, n) {
   baseVal<-floor(size/n)
@@ -230,6 +203,9 @@ divide_span<-function(size, n) {
 #' @param userPS User specified min and mean PS ratios for value
 #'	calculations, instead of the one computed from historical data.
 #'	Useful when PE ratios are negative.
+#' @param fxRatio A value to divide estimated stock value. For example,
+#'	if a stock's value is measured in HKD, one may want to provide 7.78
+#'  to get stock value in USD.
 #' @param returnDat Logical. If true, the read data is returned
 #'   as attribute 'dat'.
 #'
@@ -238,6 +214,7 @@ get_stock_value<-function(ticker, src="sa",
                           span=10,
 						  userPE=c(NA,NA),
 						  userPS=c(NA,NA),
+						  fxRatio=1,
                           returnDat=F) {
   # read data, both yearly and quarterly
   datYear<-read_financials(ticker, src=src, period = "annual", srcDir=srcDir)
@@ -294,7 +271,7 @@ get_stock_value<-function(ticker, src="sa",
 											multiple = multiple)
 										)
               )
-    return(estVals)
+    return(estVals/fxRatio)
   }
   # minPE
   estVals_minPE<-sapply(seq_len(ncol(dcfRates)),
@@ -397,15 +374,27 @@ summarize_metrics<-function(dat, metrics, removeNegative=T, simplify=F, ...) {
 #'
 #' This is a wrapper of [get_stock_value()] so that
 #' 
-#' 
+#' @param currency A character vector providing used currency for each ticker.
+#'	If provided, estimated stock values will be transformed to USD according
+#'	current FX ratio.
 #' @inheritParams get_stock_value
-get_stocks_values<-function(tickers, ...) {
+get_stocks_values<-function(tickers, currency=NA, ...) {
   if(is.matrix(tickers) || is.data.frame(tickers)) {
     tickers<-tickers[,1]
   }
-  stockValues<-lapply(tickers, function(x) {
+  # use mapply to call function on each ticker's input
+  if(is.na(currency)) { 
+	fxRatios<-rep(1, length(tickers)) 
+  } else {
+	fxRatios<-sapply(currency, function(x) get_fx("USD", x))
+	if(length(fxRatios) == 1) { fxRatios<-rep(fxRatios, length(tickers)) } # all tickers use the same FX ratio
+  }
+  # estimate values now
+  stockValues<-lapply(seq_along(tickers), function(i) {
+			x<-tickers[i]
+			fxRatio<-fxRatios[i]
             message(sprintf("== Analyzing '%s' ==", x));
-            get_stock_value(x, ...) }
+            get_stock_value(x, fxRatio=fxRatio, ...) }
           )
   # combine
   #tmp1<-lapply(stockValues,
@@ -414,7 +403,6 @@ get_stocks_values<-function(tickers, ...) {
   do.call(rbind, stockValues)->stockValues
   return(stockValues)
 }
-
 
 #' Calculate health index
 #'
