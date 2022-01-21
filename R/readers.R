@@ -385,6 +385,7 @@ read_financial_ratios<-function(f, src=c("sa","mt")) {
 #' @export
 get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, units=c("days","months", "years"), ...) {
 	options("getSymbols.warning4.0"=FALSE)
+	tickers<-toupper(tickers)
 	if(is.na(span) && is.na(from)) { # real time data
 		quoteInfo<-quantmod::yahooQF(c("Last Trade (Price Only)", 
 							"Change in Percent", 
@@ -395,10 +396,13 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 							"Percent Change From 200-day Moving Average",
 							"Dividend Yield",
 							"Price/Book",
+							"Earnings/Share",
+							"EPS Forward",
 							"P/E Ratio"))
 		return(quantmod::getQuote(tickers, what=quoteInfo))
 	}
 	# otherwise historical data
+	to<-as.Date(to)
 	if(is.na(from)) {
 		units<-match.arg(units)
 		durationMethod<-switch( units,
@@ -408,6 +412,8 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 			stop(glue::glue("Unknown time units: {units}"))
 			)
 		from<-lubridate::add_with_rollback(to, -durationMethod(span))
+	} else {
+		from<-as.Date(from)
 	}
 	prices<-lapply(tickers, function(x) {
 							price<-tryCatch(suppressWarnings(
@@ -423,5 +429,14 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 				   )
 	names(prices)<-tickers
 	return(prices)
+}
+
+#' Get current exchange ratio for currencies
+
+get_fx<-function(fromCurrency, toCurrency) {
+	ticker<-paste0(fromCurrency, toCurrency, "=X")
+	ticker<-toupper(ticker)
+	fx<-quantmod::getQuote(ticker)[,'Last']
+	return(fx)
 }
 
