@@ -48,3 +48,7 @@ inst/extdata
 # log files
 logs/
 
+# temporary files
+tmp/
+XBRLcache/
+xbrl.Cache
