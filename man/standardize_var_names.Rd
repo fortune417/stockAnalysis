@@ -10,7 +10,7 @@ standardize_var_names(varNames)
 \item{varNames}{A vector of variable names}
 }
 \value{
-updated variable names
+standardized variable names
 }
 \description{
 Standardize the variable names

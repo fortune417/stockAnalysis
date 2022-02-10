@@ -7,7 +7,9 @@
 get_stock_value(ticker, src = "sa", srcDir = NULL, span = 10, returnDat = F)
 }
 \arguments{
-\item{ticker}{A stock symbol, such as 'AAPL'}
+\item{src}{Data source, currently support "sa" (stockanalysis.com) and 'mt' (macrotrends.net)}
+
+\item{srcDir}{As an alternative to src, one can directly provide the folder containing the data files}
 
 \item{span}{The number of years for consideration.}
 
@@ -15,5 +17,6 @@ get_stock_value(ticker, src = "sa", srcDir = NULL, span = 10, returnDat = F)
 as attribute 'dat'.}
 }
 \description{
-Calculate the intrinsic value of a stock
+Calculate the intrinsic value and some other metrics
+of a stock.
 }

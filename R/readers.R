@@ -383,7 +383,7 @@ read_financial_ratios<-function(f, src=c("sa","mt")) {
 #' @return A data.frame for realtime data (rows are tickers), and a list for
 #'  historical data.
 #' @export
-get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, units=c("days","months", "years"), ...) {
+get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, units=c("days","months", "years"), baseCurrency=NULL, ...) {
 	options("getSymbols.warning4.0"=FALSE)
 	tickers<-toupper(tickers)
 	if(is.na(span) && is.na(from)) { # real time data
@@ -398,8 +398,43 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 							"Price/Book",
 							"Earnings/Share",
 							"EPS Forward",
-							"P/E Ratio"))
-		return(quantmod::getQuote(tickers, what=quoteInfo))
+							"P/E Ratio",
+							"Market Capitalization",
+							"Currency"))
+		prices<-quantmod::getQuote(tickers, what=quoteInfo)
+		# change header names to make them shorter
+		headers<-colnames(prices)
+		headers[which(headers=="% Change From 200-day MA")]<-"% Change vs 200DMA"
+		headers[which(headers=="% Change From 50-day MA")]<-"% Change vs 50DMA"
+		headers[which(headers=="Dividend Yield")]<-"Div. Yield"
+		headers[which(headers=="Price/Book")]<-"P/B"
+		headers[which(headers=="Earnings/Share")]<-"EPS"
+		headers[which(headers=="P/E Ratio")]<-"P/E"
+		headers[which(headers=="Market Capitalization")]<-"Market Cap(M)"
+		colnames(prices)<-headers
+		# format the data
+		prices[["% Change vs 200DMA"]]<-signif(prices[["% Change vs 200DMA"]]*100,3)
+		prices[["% Change vs 50DMA"]]<-signif(prices[["% Change vs 50DMA"]]*100,3)
+		prices[["P/B"]]<-signif(prices[["P/B"]],3)
+		prices[["P/E"]]<-signif(prices[["P/E"]],3)
+		prices[["Market Cap(M)"]]<-signif(prices[["Market Cap(M)"]]/10^6,3)
+		# convert values to base currency if provided
+		if(!is.null(baseCurrency)) {
+			message("Currency conversion hasn't implemented")
+		}
+		return(prices)
+		# handle tikers without data, but this version is too slow
+		# prices<-lapply(tickers, function(x) {
+		# 					price<-tryCatch(suppressWarnings(
+		# 							quantmod::getQuote(x, what=quoteInfo)
+		# 							),
+		# 						error=function(e) { warning(glue::glue("Ticker '{x}' has no price data")); return(NULL) }
+		# 						)
+		# 					return(price)
+		# 					}
+		# 	)
+		# # combine the list into one data.frame
+		# return(do.call(rbind, prices))
 	}
 	# otherwise historical data
 	to<-as.Date(to)
@@ -432,11 +467,51 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 }
 
 #' Get current exchange ratio for currencies
-
+#'
+#' This function returns the exchange ratio between `fromCurrency` and
+#' `toCurrency`. For example, if fromCurrency="HKD" and toCurrency="USD",
+#' a returned value would be kind of 0.128
+#'
+#' @param fromCurrency character vector. The currency to convert from, can accept multiple values
+#' @param toCurrency character vector. The currency to convert to, can accept multiple values.
+#'
+#' @details
+#' When one of `fromCurrency` and `toCurrency` has multiple values, but the other
+#' has only one, then the length-one value will be replicated to match the length
+#' of the longer one.
+#'
+#' @return A vector with 
 get_fx<-function(fromCurrency, toCurrency) {
+	stopifnot(!any(is.na(fromCurrency), is.na(toCurrency))) # NA values are not accepted
+	if(length(fromCurrency) == 1) {
+		fromCurrency<-rep(fromCurrency, length(toCurrency))
+	} else if(length(toCurrency) == 1) {
+		toCurrency<-rep(toCurrency, length(fromCurrency))
+	}
+	stopifnot(length(fromCurrency) == length(toCurrency))
 	ticker<-paste0(fromCurrency, toCurrency, "=X")
 	ticker<-toupper(ticker)
 	fx<-quantmod::getQuote(ticker)[,'Last']
+	names(fx)<-toupper(paste(fromCurrency, toCurrency, sep="."))
 	return(fx)
 }
 
+#' Read file
+#'
+#' Read matrix-like files in different formats
+read_file<-function(f, fileExt=c("auto","csv","tsv","xlsx")) {
+	fileExt<-match.arg(fileExt)
+	if(fileExt == "auto") {
+		fileExt <- tools::file_ext(f)
+		if(fileExt == "lnk") { # link file
+			fileExt <- tools::file_ext(tools::file_path_sans_ext(f))
+		}
+	}
+	dat<-switch(fileExt,
+		csv = read.csv(f, stringsAsFactors=F),
+		tsv = read.delim(f, stringsAsFactors=F),
+		xlsx = readxl::read_excel(f),
+		stop(glue::glue("Unknown file format for {f}"))
+	)
+	return(dat)
+}

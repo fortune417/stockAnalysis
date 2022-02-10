@@ -121,12 +121,15 @@ dcf<-function(profits, usePS=FALSE,
               terminalModel=c("multiple","perpetual"),
               multiple=10,
 			  terminalG=0.05) {
+  # check required values are provided
+  if( any(is.na(g), is.na(r), is.na(multiple)) ) { return(NA_real_) }
   # compute the accumulated profits.
   if(length(profits) > 1) {
     n<-length(profits)
 	#message(glue::glue("The number of periods for dcf is derived for parameter profits"))
   }else { # compute profits based on growth
-    # get the growth rates for each year
+    if(is.na(profits)) { return(NA_real_) }
+	# get the growth rates for each year
     if(length(g)==1 && twoStage) {
       g<-c(g, g*0.5) # cut half for second half time span
     }
@@ -208,7 +211,10 @@ divide_span<-function(size, n) {
 #'  to get stock value in USD.
 #' @param returnDat Logical. If true, the read data is returned
 #'   as attribute 'dat'.
-#'
+#' @return A vector with computed DCF values as well as health metrics. Note
+#'	that the eps and sps values are already divided by fxRatio. The maximum
+#'	for minPE and minPS ratios are 10 and 5, respectively.
+#' 
 get_stock_value<-function(ticker, src="sa",
                           srcDir=NULL,
                           span=10,
@@ -239,13 +245,15 @@ get_stock_value<-function(ticker, src="sa",
   meanPE<-PEsummary$pe["mean"]
   # message(rates, payout)
   curEPS<-datYear["epsDiluted",1]
+  curEPS<-curEPS/fxRatio
   # get the PS ratio summary
   PSsummary<-summarize_metrics(datYear, "ps", removeNegative=T)
-  minPS<-PSsummary$ps["min"]
+  minPS<-min(5, PSsummary$ps["min"], na.rm=T) # P/S=5 with net margin at 30%, EPS is 17
   meanPS<-PSsummary$ps["mean"]
   curPS<-datYear["ps",1]
   shareCountVar<-ifelse("shareCountDiluted" %in% rownames(datYear), "shareCountDiluted", "shareCountBasic")
   curSPS<-ifelse(all(c('revenue', shareCountVar) %in% rownames(datYear)), datYear['revenue',1]/datYear[shareCountVar,1], NA)
+  curSPS<-curSPS/fxRatio
   
   # we will compute DCF values for the following combinations:
   #               minPE, meanPE, minPS, meanPS
@@ -271,7 +279,7 @@ get_stock_value<-function(ticker, src="sa",
 											multiple = multiple)
 										)
               )
-    return(estVals/fxRatio)
+    return(estVals)
   }
   # minPE
   estVals_minPE<-sapply(seq_len(ncol(dcfRates)),
@@ -299,8 +307,8 @@ get_stock_value<-function(ticker, src="sa",
   estVals<-c(
 			PEsumStr,
 			PSsumStr,
-			eps=curEPS, 
-			sps=curSPS,
+			eps=unname(curEPS), 
+			sps=unname(curSPS),
 			payout=payout,
 			year.last=latestYear,
 			quarter.last=latestQuarter,

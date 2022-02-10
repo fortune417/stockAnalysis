@@ -6,13 +6,16 @@
 \usage{
 read_financials(
   ticker,
-  src = c("sa", "mt"),
+  src = c("sa", "mt", "fmp", "sec"),
   period = c("annual", "quarterly"),
-  srcDir = NULL
+  srcDir = NULL,
+  ...
 )
 }
 \arguments{
-\item{ticker}{A stock symbol, such as 'AAPL'}
+\item{src}{Data source, currently support "sa" (stockanalysis.com) and 'mt' (macrotrends.net)}
+
+\item{srcDir}{As an alternative to src, one can directly provide the folder containing the data files}
 }
 \value{
 an object of FinData

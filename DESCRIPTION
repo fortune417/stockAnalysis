@@ -17,4 +17,7 @@ Imports:
     readxl,
     data.table,
     tools,
-    MASS
+    MASS,
+    glue,
+    quantmod,
+    lubridate

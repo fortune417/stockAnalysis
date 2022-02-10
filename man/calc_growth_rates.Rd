@@ -7,7 +7,8 @@
 calc_growth_rates(
   dat,
   vars = c("revenue", "epsDiluted", "freeCashFlow"),
-  periods = c(10, 5, 3, 1)
+  periods = c(10, 5, 3, 1),
+  ...
 )
 }
 \arguments{
@@ -17,6 +18,8 @@ balance sheet, income statement, and cash flow.}
 \item{vars}{Selected variables}
 
 \item{periods}{Considered periods in years.}
+
+\item{...}{other arguments to \code{\link[=calc_growth_rate]{calc_growth_rate()}}}
 }
 \value{
 A list with each element corresponding to one variable

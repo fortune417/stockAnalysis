@@ -7,6 +7,7 @@
 read_sa_file(f)
 }
 \description{
-Read excel file downloaded from stockAnalysis
+Read the data downloaded from stockanalysis.com and format them
+into standard format with standard vocabulary.
 }
 \keyword{internal}
