@@ -415,8 +415,10 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 		# format the data
 		prices[["% Change vs 200DMA"]]<-signif(prices[["% Change vs 200DMA"]]*100,3)
 		prices[["% Change vs 50DMA"]]<-signif(prices[["% Change vs 50DMA"]]*100,3)
+		prices[["Div. Yield"]]<-signif(prices[["Div. Yield"]]*100,3)
 		prices[["P/B"]]<-signif(prices[["P/B"]],3)
 		prices[["P/E"]]<-signif(prices[["P/E"]],3)
+		prices[["% Change"]]<-signif(prices[["% Change"]],3)
 		prices[["Market Cap(M)"]]<-signif(prices[["Market Cap(M)"]]/10^6,3)
 		# convert values to base currency if provided
 		if(!is.null(baseCurrency)) {

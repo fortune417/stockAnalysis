@@ -30,6 +30,18 @@ to_string<-function(x, ...) {
   UseMethod("to_string", x)
 }
 
+#' Reduce digits
+#'
+#' Reduce the number of digits in the numeric columns
+#' by keeping the specified number of significant digits
+reduce_digits<-function(dat, digits=4) {
+	stopifnot(any(is.data.frame(dat), is.matrix(dat), is.numeric(dat) ))
+	if( is.null(dim(dat)) ) {  return(signif(dat, digits)) }
+	# data.frame or matrix
+	tmpd<-sapply(seq_len(ncol(dat)), function(i) if(is.numeric(dat[,i])) { dat[,i]<<-signif(dat[,i], digits) } )
+	return(dat)
+}
+
 #' Find undervalued stocks
 #'
 #' Reads pre-computed stock metrics on intrinsic values

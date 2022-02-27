@@ -20,4 +20,5 @@ Imports:
     MASS,
     glue,
     quantmod,
-    lubridate
+    lubridate,
+    dplyr
