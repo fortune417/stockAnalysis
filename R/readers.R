@@ -383,7 +383,7 @@ read_financial_ratios<-function(f, src=c("sa","mt")) {
 #' @return A data.frame for realtime data (rows are tickers), and a list for
 #'  historical data.
 #' @export
-get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, units=c("days","months", "years"), baseCurrency=NULL, ...) {
+get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, units=c("days","months", "years"), baseCurrency=NULL, tz="America/Los_Angeles", ...) {
 	options("getSymbols.warning4.0"=FALSE)
 	tickers<-toupper(tickers)
 	if(is.na(span) && is.na(from)) { # real time data
@@ -424,6 +424,8 @@ get_stock_price<-function(tickers, to=lubridate::today(), from=NA, span=NA, unit
 		if(!is.null(baseCurrency)) {
 			message("Currency conversion hasn't implemented")
 		}
+        # change timezone to specified one
+        prices[["Trade Time"]]<-as.POSIXct(format(prices[["Trade Time"]], tz=tz,usetz=TRUE))
 		return(prices)
 		# handle tikers without data, but this version is too slow
 		# prices<-lapply(tickers, function(x) {
