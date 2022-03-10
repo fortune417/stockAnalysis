@@ -523,3 +523,24 @@ summarize_dat<-function(dat, varNames, period,
   return(mat)
 }
 
+
+#' Financial ratio
+#'
+#' Calculate ratios for financial data
+#'
+financial_ratio<-function(x, y, digits=4) {
+    if(!is.vector(x)) { x<-as.vector(x) }
+    if(!is.vector(y)) { y<-as.vector(y) }
+    stopifnot(length(x) == length(y))
+    delta<-y-x
+    res<-sapply(seq_along(x),
+                function(i) {
+                    if(is.na(delta[i])) { return(NA) }
+                    if(x[i] == 0) { 
+                        return(NA)
+                    } else {
+                        delta[i]/abs(x[i])
+                    }
+                })
+    return(signif(res, digits=digits))
+}
