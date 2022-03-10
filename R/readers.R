@@ -503,7 +503,7 @@ get_fx<-function(fromCurrency, toCurrency) {
 #' Read file
 #'
 #' Read matrix-like files in different formats
-read_file<-function(f, fileExt=c("auto","csv","tsv","xlsx")) {
+read_file<-function(f, fileExt=c("auto","csv","tsv","xlsx"), commentChar="#", ...) {
 	fileExt<-match.arg(fileExt)
 	if(fileExt == "auto") {
 		fileExt <- tools::file_ext(f)
@@ -512,10 +512,137 @@ read_file<-function(f, fileExt=c("auto","csv","tsv","xlsx")) {
 		}
 	}
 	dat<-switch(fileExt,
-		csv = read.csv(f, stringsAsFactors=F),
-		tsv = read.delim(f, stringsAsFactors=F),
-		xlsx = readxl::read_excel(f),
+		csv = read.csv(f, stringsAsFactors=F, comment.char=commentChar, ...),
+		tsv = read.delim(f, stringsAsFactors=F, comment.char=commentChar, ...),
+		xlsx = readxl::read_excel(f, ...),
 		stop(glue::glue("Unknown file format for {f}"))
 	)
 	return(dat)
 }
+
+
+#' Read bank portfolio
+#' 
+#' Read the portofolio files downloaded from each bank
+#' and return a data.frame with standard columns.
+#'
+read_bank_portfolio<-function(f, accountName=NULL, bank=c("chase","cs","ib"), commentChar="#") {
+    if(is.null(accountName)) {
+        accountName<-tools::file_path_sans_ext(basename(f))
+    }
+    dat<-read_file(f, commentChar=commentChar, check.names=F)
+    bank<-match.arg(bank)
+    res<-switch(bank,
+        chase = zz_process_chase_portfolio(dat),
+           cs = zz_process_cs_portfolio(dat),
+           ib = zz_process_ib_portfolio(dat),
+        stop(glue::glue("Unknown bank: {bank}"))
+    )
+    # change the cash basis to itself
+    cashRows<-which(res$Symbol %in% c("HKD","USD", "CNY"))
+    res$CostBasis[cashRows]<-res$Quantity[cashRows]
+    res<-cbind(Account=accountName, res)
+    return(res)
+}
+
+#' Process portfolio from Interactive Broker
+#' @keywords internal
+zz_process_ib_portfolio<-function(dat) {
+    # filter rows first
+    dat<-subset(dat, Symbol != "")
+    # rename columns
+    oldNames<-c("Cost Basis", "FinancialInstrument")
+    newNames<-c("CostBasis", "Type")
+    colnames(dat)[match(oldNames, colnames(dat))]<-newNames
+    selectedCols<-c("Symbol", "Type", "Quantity", "CostBasis", "Currency", "Date")
+    stopifnot(all(selectedCols %in% colnames(dat)))
+    dat<-dat[,selectedCols]
+    # also get the underlying stock for options
+    dat$UnderTicker<-dat$Symbol
+    dat$OptionType<-NA
+    optionRows<-which(dat$Type=="Options")
+    if(length(optionRows) > 0) {
+        optionSet<-strsplit(dat$Symbol[optionRows], "\\s+")
+        tmpTickers<-sapply(optionSet,  `[`, 1)
+        tmpOption<-sapply(optionSet,  `[`, 2)
+        optionType<-ifelse(grepl("C", tmpOption), "C", ifelse(grepl("P", tmpOption), "P", "U" ))
+        dat$UnderTicker[optionRows]<-tmpTickers
+        dat$OptionType[optionRows]<-optionType
+    }
+    return(dat)
+}
+
+#' Process portfolio from Charles Schwab
+#' @keywords internal
+zz_process_cs_portfolio<-function(dat) {
+    # rename columns
+    oldNames<-c("Cost Basis", "Security Type")
+    newNames<-c("CostBasis", "Type")
+    colnames(dat)[match(oldNames, colnames(dat))]<-newNames
+    # filter rows
+    dat<-subset(dat, Type != "" & !is.na(Type))
+    # map security type to standard names
+    dat$Type<-sapply(dat$Type, function(x) switch(x, "Equity" = "Stocks", Option="Options", "Mutual Fund"="MutualFunds", "Cash and Money Market"="Cash", "Unknown"))
+    # format the data for Cash
+    dat$Symbol[dat$Type=="Cash"]<-"USD"
+    dat$CostBasis[dat$Symbol=="USD"]<-dat[,"Market Value"][dat$Symbol=="USD"]
+    dat$CostBasis<-as.numeric(gsub("[,$]", "", dat$CostBasis))
+    dat$Quantity[dat$Symbol=="USD"]<-dat$CostBasis[dat$Symbol=="USD"]
+    dat$Currency<-"USD" # assume USD only, need update in future if other currencies are there
+    # prepare data now
+    dat$Date<-format(Sys.Date(), "%m/%d/%Y") # add today's date
+    selectedCols<-c("Symbol", "Type", "Quantity", "CostBasis", "Currency", "Date")
+    stopifnot(all(selectedCols %in% colnames(dat)))
+    dat<-dat[,selectedCols]
+    # also get the underlying stock for options
+    dat$UnderTicker<-dat$Symbol
+    dat$OptionType<-NA
+    optionRows<-which(dat$Type=="Options")
+    if(length(optionRows) > 0) {
+        optionSet<-strsplit(dat$Symbol[optionRows], "\\s+")
+        tmpTickers<-sapply(optionSet,  `[`, 1)
+        optionType<-sapply(optionSet,  `[`, 4)
+        dat$UnderTicker[optionRows]<-tmpTickers
+        dat$OptionType[optionRows]<-optionType
+    }
+    return(dat)
+}
+
+
+#' Process portfolio from JP Morgan Chase
+#' @keywords internal
+zz_process_chase_portfolio<-function(dat) {
+    # filter rows
+    dat<-subset(dat, dat[,"As of"] != "")
+    # rename columns
+    oldNames<-c("Ticker", "Base CCY", "Cost", "As of")
+    newNames<-c("Symbol", "Currency", "CostBasis", "Date")
+    colnames(dat)[match(oldNames, colnames(dat))]<-newNames
+    # get security type and change cash symbols
+    dat$Type<-sapply(dat$Symbol, function(x) {
+                        switch(x,
+                            QACDS="Cash",
+                            QDERQ="Cash",
+                            ifelse(grepl(" (PUT|CALL) ",x), "Options", "Stocks")
+                        )
+                    })
+    dat$Symbol[dat$Type=="Cash"]<-dat$Currency[dat$Type=="Cash"]
+    # prepare data
+    selectedCols<-c("Symbol", "Type", "Quantity", "CostBasis", "Currency", "Date")
+    stopifnot(all(selectedCols %in% colnames(dat)))
+    dat<-dat[,selectedCols]
+    # also get the underlying stock for options
+    dat$UnderTicker<-dat$Symbol
+    dat$OptionType<-NA
+    optionRows<-which(dat$Type=="Options")
+    if(length(optionRows) > 0) {
+        optionSet<-strsplit(dat$Symbol[optionRows], "\\s+")
+        tmpTickers<-sapply(optionSet,  `[`, 1)
+        optionType<-substr(sapply(optionSet,  `[`, 2), 1,1)
+        dat$UnderTicker[optionRows]<-tmpTickers
+        dat$OptionType[optionRows]<-optionType
+    }
+    return(dat)
+
+}
+
