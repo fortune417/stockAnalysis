@@ -33,6 +33,15 @@ update_edgar_data<-function(outDir=NULL) {
   return(invisible(status))
 }
 
+#' SEC EDGAR data
+#'
+#' This object contains the URLs for the source
+#' EDGAR data.
+#' @format `edgarData`
+#'    a list containing URLs
+#' @source SEC EDGAR data API
+"edgarData"
+
 
 #' Stock tickers
 #'
@@ -46,6 +55,6 @@ update_edgar_data<-function(outDir=NULL) {
 #' - ticker: ticker symbol
 #' - exchange: listing stock exchange
 #'
-#' @source: see [edgarData$companyTickersExchange]
+#' @source see [edgarData$companyTickersExchange]
 "tickers"
 
