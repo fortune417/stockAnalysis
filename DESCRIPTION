@@ -1,19 +1,20 @@
 Package: stockAnalysis
-Title: What the Package Does (One Line, Title Case)
+Title: Financial Statement Analysis and Stock Valuation
 Version: 0.0.0.9000
-Authors@R: 
+Authors@R:
     person(given = "First",
            family = "Last",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+           email = "first.last@example.com")
+Description: Process and analyze SEC financial statement data to identify potentially undervalued stocks.
+    Provides functions for reading SEC data sets, calculating financial ratios, visualizing trends,
+    and creating interactive dashboards for financial analysis.
 License: AGPL (>= 3)
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.0
-Imports: 
+RoxygenNote: 7.3.3
+Imports:
     readxl,
     data.table,
     tools,
@@ -23,6 +24,16 @@ Imports:
     lubridate,
     dplyr,
     shinyMatrix,
-    jsonlite
-Depends: 
+    jsonlite,
+    ggplot2,
+    reshape2,
+    scales,
+    writexl,
+    rmarkdown,
+    knitr,
+    methods
+Suggests:
+    testthat (>= 3.0.0)
+Depends:
     R (>= 2.10)
+VignetteBuilder: knitr

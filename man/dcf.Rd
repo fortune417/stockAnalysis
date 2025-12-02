@@ -6,6 +6,7 @@
 \usage{
 dcf(
   profits,
+  usePS = FALSE,
   n = 5,
   g = 0.05,
   r = 0.1,
@@ -20,7 +21,13 @@ dcf(
 \item{profits}{EPS, FCF, etc, the profits generated each year,
 if the length is 1, it will be treated as initial value, and
 the values for the following years are computed based on growth
-rate(s).}
+rate(s). It can also be sales per share and the paramter \code{usePS}
+should be TRUE; in this case, the terminal sales per share will
+be computed and stock price will be computed as
+terminalSalesPerShare*multiple (assuming multiple is P/S ratio).}
+
+\item{usePS}{logical. If TRUE, the paramter \code{profits} refers to
+sales per share and multiple is P/S ratio. Default is FALSE.}
 
 \item{n}{The time span (in years) to consider. This is overriden if
 the length of \code{profits} is greater than 1, in which case the number

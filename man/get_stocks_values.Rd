@@ -4,7 +4,12 @@
 \alias{get_stocks_values}
 \title{Get intrinsic values for multiple stocks}
 \usage{
-get_stocks_values(tickers, ...)
+get_stocks_values(tickers, currency = NA, ...)
+}
+\arguments{
+\item{currency}{A character vector providing used currency for each ticker.
+If provided, estimated stock values will be transformed to USD according
+current FX ratio.}
 }
 \description{
 This is a wrapper of \code{\link[=get_stock_value]{get_stock_value()}} so that

@@ -52,3 +52,8 @@ logs/
 tmp/
 XBRLcache/
 xbrl.Cache
+docs
+
+# downloaded data
+SEC/
+

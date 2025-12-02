@@ -124,7 +124,7 @@ get_term_dict<-function() {
     "Eps Growth (yoy)", "epsGrowthYoY",
     "Dividend Growth (yoy)", "dividendGrowthYoY"
   )
-  nameDict<-unique(matrix(nameDict, nc=2, byrow = T))
+  nameDict<-unique(base::matrix(nameDict, nc=2, byrow = T))
   stopifnot(!any(duplicated(nameDict[,1])))
   rownames(nameDict)<-tolower(nameDict[,1])
   colnames(nameDict)<-c("rawName","standardName")

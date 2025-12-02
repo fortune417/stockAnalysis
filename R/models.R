@@ -14,6 +14,20 @@
 #'
 #' @return A list with each element corresponding to one variable
 #'
+#' Calculate growth rates for selected variables
+#'
+#' This function calculates the growth rates for
+#' the selected variables by `vars` in the given
+#' periods by `periods`.
+#'
+#' @param dat A object holds financial information, including
+#'   balance sheet, income statement, and cash flow.
+#' @param vars Selected variables
+#' @param periods Considered periods in years.
+#' @param ... other arguments to [calc_growth_rate()]
+#'
+#' @return A list with each element corresponding to one variable
+#'
 calc_growth_rates<-function(dat,
                             vars=c("revenue","epsDiluted", "freeCashFlow"),
                             periods=c(10,5,3,1),
@@ -38,6 +52,16 @@ calc_growth_rates<-function(dat,
   return(rates)
 }
 
+#' Calculate growth rate for selected periods
+#'
+#' This function calculates the growth rates for the selected periods using
+#' either exponential or linear model.
+#'
+#' @param x Numeric vector of x values (typically years)
+#' @param y Numeric vector of y values (typically financial values)
+#' @param periods Considered periods in years.
+#' @param model Model type to use for growth calculation ("exp" for exponential, "linear" for linear)
+#' @return A numeric vector of growth rates for each period
 calc_growth_rate<-function(x,y,periods, model=c("exp", "linear")) {
   model<-match.arg(model)
   df<-data.frame(x,y)
@@ -91,7 +115,7 @@ robust_lm<-function(dat, model, returnFit=F) {
 #'   the values for the following years are computed based on growth
 #'   rate(s). It can also be sales per share and the paramter `usePS`
 #'   should be TRUE; in this case, the terminal sales per share will
-#'   be computed and stock price will be computed as 
+#'   be computed and stock price will be computed as
 #'   terminalSalesPerShare*multiple (assuming multiple is P/S ratio).
 #' @param usePS logical. If TRUE, the paramter `profits` refers to
 #'	 sales per share and multiple is P/S ratio. Default is FALSE.
@@ -164,33 +188,236 @@ dcf<-function(profits, usePS=FALSE,
 }
 
 #' Divide a range into smaller ones
-#'
-#' @param size the size of the range.
-#' @param n the number of smaller ranges to hold the range
-#'
-#' @return a vector with size in each smaller ranges.
-#' @keyword internal
+divide_span<-function(n, k) {
+  # Divide range 1:n into k sub-ranges as evenly as possible
+  base_size <- n %/% k
+  remainder <- n %% k
+  sizes <- rep(base_size, k)
+  sizes[1:remainder] <- sizes[1:remainder] + 1
+  return(sizes)
+}
 
+#' Calculate financial ratios from financial statement data
+#'
+#' This function calculates key financial ratios from financial statement data.
+#'
+#' @param fs_data Financial statement data in a standardized format
+#' @param ratios Character vector of ratios to calculate. If NULL, calculates all available ratios
+#' @param period_filter Character string to filter by period (e.g., "annual", "quarterly")
+#' @return A data frame with calculated ratios
+calculate_ratios<-function(fs_data, ratios=NULL, period_filter=NULL) {
+  # Verify required columns exist
+  required_cols <- c("cik", "period", "tag", "value")
+  if (!all(required_cols %in% colnames(fs_data))) {
+    stop("fs_data must contain required columns: ", paste(required_cols, collapse=", "))
+  }
 
-divide_span<-function(size, n) {
-  baseVal<-floor(size/n)
-  mod<-size %% n
-  up<-T
-  spans<-rep(baseVal,n)
-  # spread the mod to the spans
-  for(i in seq_len(n)) {
-    if(mod > 0) {
-      if(up) {
-        spans[i]<-spans[i]+1
-        mod<-mod-1
-      }
-      up<-!up
-    } else {
-      break
+  # Convert period to date if not already
+  if("period_date" %in% colnames(fs_data)) {
+    fs_data$period_date <- as.Date(as.character(fs_data$period), format="%Y%m%d")
+  } else {
+    fs_data$period_date <- as.Date(as.character(fs_data$period), format="%Y%m%d")
+  }
+
+  # Add year column
+  fs_data$year <- as.numeric(format(fs_data$period_date, "%Y"))
+
+  # Pivot the data to have one column per financial metric
+  fs_pivot <- reshape2::dcast(fs_data, cik + period_date + year ~ tag, value.var="value")
+
+  # Define common financial term mappings
+  term_mapping <- get_term_dict()
+
+  # Initialize result data frame
+  ratios_df <- fs_pivot[, c("cik", "period_date", "year")]
+
+  # Calculate profitability ratios
+  if(is.null(ratios) || "gross_margin" %in% ratios) {
+    if(all(c("revenue", "grossProfit") %in% colnames(fs_pivot))) {
+      ratios_df$gross_margin <- fs_pivot$grossProfit / fs_pivot$revenue
+    } else if(all(c("revenue", "costOfRevenue") %in% colnames(fs_pivot))) {
+      ratios_df$gross_margin <- (fs_pivot$revenue - fs_pivot$costOfRevenue) / fs_pivot$revenue
     }
   }
-  return(spans)
+
+  if(is.null(ratios) || "operating_margin" %in% ratios) {
+    if(all(c("revenue", "opIncome") %in% colnames(fs_pivot))) {
+      ratios_df$operating_margin <- fs_pivot$opIncome / fs_pivot$revenue
+    }
+  }
+
+  if(is.null(ratios) || "profit_margin" %in% ratios) {
+    if(all(c("revenue", "netIncome") %in% colnames(fs_pivot))) {
+      ratios_df$profit_margin <- fs_pivot$netIncome / fs_pivot$revenue
+    }
+  }
+
+  if(is.null(ratios) || "roa" %in% ratios) {
+    if(all(c("netIncome", "totalAsset") %in% colnames(fs_pivot))) {
+      ratios_df$roa <- fs_pivot$netIncome / fs_pivot$totalAsset
+    }
+  }
+
+  if(is.null(ratios) || "roequity" %in% ratios) {
+    if(all(c("netIncome", "shareholderEquity") %in% colnames(fs_pivot))) {
+      ratios_df$roequity <- fs_pivot$netIncome / fs_pivot$shareholderEquity
+    }
+  }
+
+  if(is.null(ratios) || "roic" %in% ratios) {
+    if(all(c("netIncome", "totalAsset", "totalLiability") %in% colnames(fs_pivot))) {
+      invested_capital <- fs_pivot$totalAsset - fs_pivot$totalLiability
+      ratios_df$roic <- fs_pivot$netIncome / invested_capital
+    }
+  }
+
+  # Calculate liquidity ratios
+  if(is.null(ratios) || "current_ratio" %in% ratios) {
+    if(all(c("totalCurAsset", "totalCurLiability") %in% colnames(fs_pivot))) {
+      ratios_df$current_ratio <- fs_pivot$totalCurAsset / fs_pivot$totalCurLiability
+    }
+  }
+
+  if(is.null(ratios) || "quick_ratio" %in% ratios) {
+    if(all(c("totalCurAsset", "inventory", "totalCurLiability") %in% colnames(fs_pivot))) {
+      quick_assets <- fs_pivot$totalCurAsset - fs_pivot$inventory
+      ratios_df$quick_ratio <- quick_assets / fs_pivot$totalCurLiability
+    }
+  }
+
+  # Calculate leverage ratios
+  if(is.null(ratios) || "debt_equity" %in% ratios) {
+    if(all(c("totalLiability", "shareholderEquity") %in% colnames(fs_pivot))) {
+      ratios_df$debt_equity <- fs_pivot$totalLiability / fs_pivot$shareholderEquity
+    }
+  }
+
+  if(is.null(ratios) || "debt_ratio" %in% ratios) {
+    if(all(c("totalLiability", "totalAsset") %in% colnames(fs_pivot))) {
+      ratios_df$debt_ratio <- fs_pivot$totalLiability / fs_pivot$totalAsset
+    }
+  }
+
+  # Calculate efficiency ratios
+  if(is.null(ratios) || "asset_turnover" %in% ratios) {
+    if(all(c("revenue", "totalAsset") %in% colnames(fs_pivot))) {
+      ratios_df$asset_turnover <- fs_pivot$revenue / fs_pivot$totalAsset
+    }
+  }
+
+  if(is.null(ratios) || "inventory_turnover" %in% ratios) {
+    if(all(c("costOfRevenue", "inventory") %in% colnames(fs_pivot))) {
+      ratios_df$inventory_turnover <- fs_pivot$costOfRevenue / fs_pivot$inventory
+    }
+  }
+
+  # Return the ratios
+  return(ratios_df)
 }
+
+#' Create time series of financial metrics
+#'
+#' This function creates time series of financial metrics for trend analysis.
+#'
+#' @param fs_data Financial statement data in a standardized format
+#' @param metrics Character vector of metrics to include in the time series
+#' @param company_cik CIK of the company to analyze (optional, if NULL analyzes all)
+#' @return A list of time series for each requested metric
+create_financial_ts<-function(fs_data, metrics, company_cik=NULL) {
+  # Filter by company if specified
+  if(!is.null(company_cik)) {
+    fs_data <- fs_data[fs_data$cik == company_cik, ]
+  }
+
+  # Ensure period is converted to date
+  if("period_date" %in% colnames(fs_data)) {
+    fs_data$period_date <- as.Date(fs_data$period_date)
+  } else {
+    fs_data$period_date <- as.Date(as.character(fs_data$period), format="%Y%m%d")
+  }
+
+  # Create time series for each requested metric
+  ts_list <- list()
+  for(metric in metrics) {
+    if(metric %in% fs_data$tag) {
+      metric_data <- fs_data[fs_data$tag == metric, c("period_date", "value")]
+      metric_data <- metric_data[order(metric_data$period_date), ]
+      names(metric_data) <- c("date", metric)
+
+      # Convert to time series object
+      ts_values <- stats::ts(metric_data[[metric]], start=c(min(as.numeric(format(metric_data$date, "%Y"))),
+                                                      min(as.numeric(format(metric_data$date, "%m")))),
+                     frequency=4)  # Quarterly frequency
+      ts_list[[metric]] <- ts_values
+    }
+  }
+
+  return(ts_list)
+}
+
+#' Screen stocks based on financial criteria
+#'
+#' This function screens stocks based on specified financial criteria.
+#'
+#' @param fs_data Financial statement data
+#' @param criteria A list of criteria to screen by (e.g., list(roa = list(min = 0.1), pe = list(max = 15)))
+#' @param weights Optional weights for different criteria in ranking
+#' @return A data frame with screened and ranked stocks
+stock_screen<-function(fs_data, criteria, weights=NULL) {
+  # Calculate ratios if not already available
+  if(!all(c("roa", "current_ratio", "debt_equity") %in% colnames(fs_data))) {
+    fs_data <- calculate_ratios(fs_data)
+  }
+
+  # Apply screening criteria
+  screened_data <- fs_data
+
+  for(ratio in names(criteria)) {
+    if(ratio %in% colnames(screened_data)) {
+      if("min" %in% names(criteria[[ratio]])) {
+        min_val <- criteria[[ratio]]$min
+        screened_data <- screened_data[screened_data[[ratio]] >= min_val, ]
+      }
+      if("max" %in% names(criteria[[ratio]])) {
+        max_val <- criteria[[ratio]]$max
+        screened_data <- screened_data[screened_data[[ratio]] <= max_val, ]
+      }
+    }
+  }
+
+  # Add ranking based on criteria if weights are provided
+  if(!is.null(weights) && nrow(screened_data) > 0) {
+    ranking_scores <- rep(0, nrow(screened_data))
+
+    for(ratio in names(weights)) {
+      if(ratio %in% colnames(screened_data)) {
+        # Normalize the ratio values
+        ratio_values <- screened_data[[ratio]]
+        # Handle potential infinity or NA values
+        ratio_values[is.infinite(ratio_values) | is.na(ratio_values)] <- 0
+
+        # Normalize to 0-1 scale
+        min_val <- min(ratio_values, na.rm = TRUE)
+        max_val <- max(ratio_values, na.rm = TRUE)
+
+        if(max_val != min_val) {
+          normalized_values <- (ratio_values - min_val) / (max_val - min_val)
+        } else {
+          normalized_values <- rep(0.5, length(ratio_values))  # If all values are the same
+        }
+
+        ranking_scores <- ranking_scores + weights[[ratio]] * normalized_values
+      }
+    }
+    screened_data$ranking_score <- ranking_scores
+
+    # Sort by ranking score in descending order
+    screened_data <- screened_data[order(screened_data$ranking_score, decreasing = TRUE), ]
+  }
+
+  return(screened_data)
+}
+
 
 #' Calculate the intrinsic value of a stock
 #'
@@ -224,7 +451,7 @@ get_stock_value<-function(ticker, src="sa",
                           returnDat=F) {
   # read data, both yearly and quarterly
   datYear<-read_financials(ticker, src=src, period = "annual", srcDir=srcDir)
-  if(!is(datYear, "FinData")) { return(NA) }
+  if(!methods::is(datYear, "FinData")) { return(NA) }
   datQuarter<-read_financials(ticker, src=src, period = "quarterly", srcDir=srcDir)
   latestYear<-colnames(datYear)[1]
   latestQuarter<-ifelse(is.matrix(datQuarter), colnames(datQuarter)[1], NA)
@@ -459,7 +686,7 @@ calc_health_indice<-function(datYear, datQuarter) {
   values2<-summarize_dat(datYear, varNames=varNamesForRatiosYear, period=5, method="asis")
   if(nrow(values1) != nrow(values2)) { # caused by missing datQuarter
     missNrows<-nrow(values2)-nrow(values1)
-    tmpm<-matrix(NA, nr=missNrows, ncol=ncol(values1))
+    tmpm<-matrix(NA, nrow=missNrows, ncol=ncol(values1))
     values1<-rbind(values1, tmpm)
   }
   values<-cbind(values1, values2)

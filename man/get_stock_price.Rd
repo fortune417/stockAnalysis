@@ -2,10 +2,35 @@
 % Please edit documentation in R/readers.R
 \name{get_stock_price}
 \alias{get_stock_price}
-\title{Get stock price}
+\title{Get stocks' price}
 \usage{
-get_stock_price(tickers, ...)
+get_stock_price(
+  tickers,
+  to = lubridate::today(),
+  from = NA,
+  span = NA,
+  units = c("days", "months", "years"),
+  baseCurrency = NULL,
+  tz = "America/Los_Angeles",
+  ...
+)
+}
+\arguments{
+\item{to}{The last day to report. Default is today.}
+
+\item{from}{The fist day to report. This parameter has higher priority than
+\code{span} (see below).}
+
+\item{span}{An integer to provide the days, months, or years before the date
+given by \code{to}. If both \code{from} and \code{span} are \code{NA}s, then
+realtime current stock quote will be returned.}
+
+\item{units}{Time unit for the value provided by \code{span}.}
+}
+\value{
+A data.frame for realtime data (rows are tickers), and a list for
+historical data.
 }
 \description{
-Get stock price
+This function reports stock prices in a given period.
 }

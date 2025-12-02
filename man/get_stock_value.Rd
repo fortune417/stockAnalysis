@@ -4,19 +4,48 @@
 \alias{get_stock_value}
 \title{Calculate the intrinsic value of a stock}
 \usage{
-get_stock_value(ticker, src = "sa", srcDir = NULL, span = 10, returnDat = F)
+get_stock_value(
+  ticker,
+  src = "sa",
+  srcDir = NULL,
+  span = 10,
+  userPE = c(NA, NA),
+  userPS = c(NA, NA),
+  fxRatio = 1,
+  returnDat = F
+)
 }
 \arguments{
+\item{ticker}{A stock symbol, such as 'AAPL'}
+
 \item{src}{Data source, currently support "sa" (stockanalysis.com) and 'mt' (macrotrends.net)}
 
 \item{srcDir}{As an alternative to src, one can directly provide the folder containing the data files}
 
 \item{span}{The number of years for consideration.}
 
+\item{userPE}{User specified min and mean PE ratios for value
+calculation, instead of those computed from history data.
+Default are NA's, so historical values are used.}
+
+\item{userPS}{User specified min and mean PS ratios for value
+calculations, instead of the one computed from historical data.
+Useful when PE ratios are negative.}
+
+\item{fxRatio}{A value to divide estimated stock value. For example,
+if a stock's value is measured in HKD, one may want to provide 7.78
+to get stock value in USD.}
+
 \item{returnDat}{Logical. If true, the read data is returned
 as attribute 'dat'.}
 }
+\value{
+A vector with computed DCF values as well as health metrics. Note
+that the eps and sps values are already divided by fxRatio. The maximum
+for minPE and minPS ratios are 10 and 5, respectively.
+}
 \description{
 Calculate the intrinsic value and some other metrics
-of a stock.
+of a stock using both annual and quarter data from the
+specified source.
 }

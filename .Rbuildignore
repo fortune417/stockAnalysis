@@ -5,3 +5,8 @@
 ^download$
 ^data-raw$
 ^conf$
+^SEC/
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^.qwen$

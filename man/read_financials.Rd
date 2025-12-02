@@ -13,6 +13,8 @@ read_financials(
 )
 }
 \arguments{
+\item{ticker}{A stock symbol, such as 'AAPL'}
+
 \item{src}{Data source, currently support "sa" (stockanalysis.com) and 'mt' (macrotrends.net)}
 
 \item{srcDir}{As an alternative to src, one can directly provide the folder containing the data files}

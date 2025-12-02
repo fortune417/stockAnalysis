@@ -1,0 +1,168 @@
+---
+title: "Using the stockAnalysis Shiny App with SEC Data"
+output: html_document
+---
+
+# Using the stockAnalysis Shiny App with SEC Data
+
+## Overview
+
+The `stockAnalysis` package includes an interactive Shiny application that allows users to explore and analyze SEC financial statement data. This vignette demonstrates how to use the app effectively.
+
+## Launching the App
+
+To launch the Shiny app, simply run:
+
+```{r launch-app, eval=FALSE}
+library(stockAnalysis)
+
+# Launch the app
+shiny::runApp(system.file("shiny-app", package = "stockAnalysis"))
+```
+
+## Understanding the App Interface
+
+The Shiny app has four main tabs:
+
+### 1. Financial Statements Tab
+
+This tab allows you to:
+- Select a company by CIK
+- Choose which financial metrics to display
+- Set the time range for analysis
+- Select between different chart types
+- Toggle between linear and logarithmic scales
+
+### 2. Ratios Analysis Tab
+
+This section provides:
+- Profitability ratios (Profit Margin, ROA, ROE)
+- Leverage ratios (Debt-to-Equity)
+- Visualizations of how these ratios change over time
+
+### 3. Valuation Tab
+
+The valuation tab shows:
+- Key valuation multiples (P/E, P/S, P/B, EV/EBITDA)
+- A summary of the company's valuation profile
+- Insights based on financial metrics
+
+### 4. Comparison Tab
+
+Allows you to:
+- Compare two companies side-by-side
+- Visualize differences in key financial metrics
+- Identify relative strengths and weaknesses
+
+## Working with SEC Data
+
+The app is designed to work with SEC financial statement datasets. In a production environment, you would:
+
+1. Download SEC data from [SEC's EDGAR database](https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets)
+2. Process the data using the package functions:
+
+```{r process-example, eval=FALSE}
+# Process SEC data for specific companies
+sec_data <- process_sec_data(
+  data_dir = "path/to/sec/data",
+  cik = "0000320193",  # Example: Apple Inc.
+  years = 2015:2023
+)
+
+# Merge the data across forms and dates
+merged_data <- merge_sec_data(sec_data)
+```
+
+3. Use the processed data to calculate ratios and metrics:
+
+```{r ratios-example, eval=FALSE}
+# Calculate financial ratios
+ratios <- calculate_ratios(merged_data)
+
+# Create time series for trend analysis
+ts_data <- create_financial_ts(
+  merged_data,
+  metrics = c("revenue", "netIncome", "epsDiluted"),
+  company_cik = "0000320193"
+)
+```
+
+## Sample Analysis Workflow
+
+Here's a typical workflow using the app:
+
+1. **Select Company**: Use the CIK dropdown to select the company you want to analyze
+2. **Choose Metrics**: Select the financial statement items you want to track
+3. **Set Time Range**: Adjust the slider to focus on the relevant time period
+4. **Analyze Ratios**: Examine profitability, leverage, and efficiency ratios
+5. **Compare**: Use the comparison tab to benchmark against industry peers
+6. **Identify Opportunities**: Use the valuation tab to find potentially undervalued stocks
+
+## Key Functions
+
+The app uses several key functions from the `stockAnalysis` package:
+
+- `process_sec_data()`: Processes raw SEC data files
+- `merge_sec_data()`: Merges data across dates and forms
+- `calculate_ratios()`: Computes financial ratios
+- `create_financial_ts()`: Creates time series for trend analysis
+- `stock_screen()`: Screens stocks based on financial criteria
+- `find_undervalued_stocks()`: Identifies potentially undervalued stocks
+- `rank_stocks_by_valuation()`: Ranks stocks by valuation metrics
+
+## Example with Sample Data
+
+Here's how you can process the sample SEC data included with the package:
+
+```{r sample-analysis, eval=FALSE}
+library(stockAnalysis)
+
+# Process a sample of SEC data
+sec_dir <- "/path/to/sec/data"  # Replace with your SEC data directory
+
+# Process data for a specific company
+sample_data <- process_sec_data(
+  data_dir = sec_dir,
+  cik = "0000320193",  # Apple Inc.
+  years = 2020:2023
+)
+
+# Merge the data
+merged_sample <- merge_sec_data(sample_data)
+
+# Calculate ratios
+ratios <- calculate_ratios(merged_sample)
+
+# Create visualizations
+plot_financial_ts(
+  merged_sample,
+  metrics = c("revenue", "netIncome"),
+  company_cik = "0000320193"
+)
+
+# Screen for undervalued stocks
+screened <- stock_screen(
+  merged_sample,
+  criteria = list(roa = list(min = 0.1)),
+  weights = list(roa = 1.0)
+)
+```
+
+## Exporting Results
+
+You can export your analysis results in various formats:
+
+```{r export-example, eval=FALSE}
+# Export to CSV
+export_to_csv(ratios, "company_ratios.csv")
+
+# Export to Excel
+export_to_excel(list(ratios = ratios, financials = merged_sample), "analysis.xlsx")
+
+# Export to PDF report
+export_to_pdf(ratios, "ratios_report.pdf", title = "Financial Ratio Analysis")
+```
+
+## Conclusion
+
+The stockAnalysis Shiny app provides a powerful interface for exploring SEC financial data. By combining R's data processing capabilities with an intuitive web interface, it enables both novice and experienced analysts to efficiently analyze financial statements, compare companies, and identify investment opportunities.

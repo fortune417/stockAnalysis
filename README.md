@@ -1,55 +1,130 @@
-
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+stockAnalysis: Financial Statement Analysis Package
+================
 
 # stockAnalysis
 
-<!-- badges: start -->
-<!-- badges: end -->
-
-The goal of stockAnalysis is to provide a tool for analyzing the
-fundamentals of public companies, and thus provides guides on stock
-investment.
+An R package for processing and analyzing SEC financial statement data
+to identify undervalued stocks.
 
 ## Installation
 
-You can install the package from github with:
-
 ``` r
-devtools::install_github("fortune9/stockAnalysis")
+# Install from GitHub
+# devtools::install_github("fortune417/stockAnalysis")
 ```
 
-## Example
+## Usage
 
-This is a basic example which shows you how to solve a common problem:
+### Loading SEC Data
 
 ``` r
 library(stockAnalysis)
-## basic example code
+
+# Update and load SEC EDGAR data
+update_edgar_data()
+
+# Process SEC financial statement data sets
+sec_data <- process_sec_data(data_dir = "path/to/sec/data", 
+                             ticker = "AAPL", 
+                             years = 2015:2023)
+
+# Merge data across dates and forms
+merged_data <- merge_sec_data(sec_data)
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`?
-You can include R chunks like so:
+### Financial Analysis
 
 ``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
+# Calculate financial ratios
+ratios <- calculate_ratios(merged_data)
+
+# Create time series of financial metrics
+ts_data <- create_financial_ts(merged_data, 
+                               metrics = c("revenue", "netIncome", "epsDiluted"))
+
+# Screen stocks based on financial criteria
+screened_stocks <- stock_screen(merged_data, 
+                                criteria = list(roa = list(min = 0.1), 
+                                               debt_equity = list(max = 0.5)),
+                                weights = list(roa = 0.4, debt_equity = 0.6))
 ```
 
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date. `devtools::build_readme()` is handy for this. You could also
-use GitHub Actions to re-render `README.Rmd` every time you push. An
-example workflow can be found here:
-<https://github.com/r-lib/actions/tree/master/examples>.
+### Visualization
 
-You can also embed plots, for example:
+``` r
+# Plot financial time series
+plot_financial_ts(merged_data, 
+                  metrics = c("revenue", "netIncome"), 
+                  company_cik = "0000320193")
 
-<img src="man/figures/README-pressure-1.png" width="100%" />
+# Plot financial ratios
+plot_ratios(ratios, 
+            ratio_name = "roa", 
+            company_cik = "0000320193")
 
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub and CRAN.
+# Compare companies
+plot_compare_companies(merged_data, 
+                       metrics = c("revenue", "netIncome"), 
+                       companies = c("0000320193", "0000789019", "0001652044"))
+```
+
+### Find Undervalued Stocks
+
+``` r
+# Identify undervalued stocks
+undervalued <- find_undervalued_stocks(metrics = your_metrics_data,
+                                      discount_threshold = 0.8,
+                                      min_market_cap = 100,
+                                      additional_criteria = list(
+                                        roa = list(min = 0.1),
+                                        debt_equity = list(max = 0.5)
+                                      ))
+
+# Rank stocks by valuation metrics
+ranked_stocks <- rank_stocks_by_valuation(undervalued, rank_by = "value")
+```
+
+### Export Results
+
+``` r
+# Export to CSV
+export_to_csv(undervalued, "undervalued_stocks.csv")
+
+# Export to Excel
+export_to_excel(undervalued, "undervalued_stocks.xlsx")
+
+# Export to PDF report
+export_to_pdf(undervalued, "analysis_report.pdf", 
+              title = "Undervalued Stocks Analysis")
+```
+
+### Shiny App
+
+Launch the interactive dashboard:
+
+``` r
+# Launch the shiny app
+shiny::runApp(system.file("shiny-app", package = "stockAnalysis"))
+```
+
+## Features
+
+- **SEC Data Processing**: Functions to read and process SEC financial
+  statement datasets (submissions, numbers, tags, presentation)
+- **Financial Analysis**: Calculate ratios, growth rates, and valuation
+  metrics
+- **Visualization**: Time series plots, comparisons, and ratio analysis
+- **Screening**: Tools to identify and rank undervalued stocks based on
+  multiple criteria
+- **Export**: Support for CSV, Excel, and PDF exports
+- **Interactive Dashboard**: Shiny app for exploring financial data
+
+## Data Sources
+
+This package is designed to work with SEC EDGAR financial statement data
+sets available at:
+<https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets>
+
+## License
+
+This package is licensed under the MIT License.

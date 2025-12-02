@@ -23,6 +23,14 @@ balance sheet, income statement, and cash flow.}
 }
 \value{
 A list with each element corresponding to one variable
+
+Calculate growth rates for selected variables
+
+This function calculates the growth rates for
+the selected variables by \code{vars} in the given
+periods by \code{periods}.
+
+A list with each element corresponding to one variable
 }
 \description{
 This function calculates the growth rates for

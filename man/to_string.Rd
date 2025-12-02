@@ -2,10 +2,20 @@
 % Please edit documentation in R/renders.R
 \name{to_string}
 \alias{to_string}
+\alias{to_string.StockValue}
 \title{Convert an object to string}
 \usage{
 to_string(x, ...)
+
+\method{to_string}{StockValue}(x, ...)
+}
+\arguments{
+\item{x}{A StockValue object to convert to string}
+
+\item{...}{Additional arguments}
 }
 \description{
 Convert an object to string
+
+Convert an object to string (StockValue method)
 }

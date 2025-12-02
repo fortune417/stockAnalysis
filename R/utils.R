@@ -1,4 +1,4 @@
-# utility functions
+# Utility functions
 
 today<-function(asStr=F, fmt="%Y%m%d") {
   return(format(Sys.Date(), fmt))
