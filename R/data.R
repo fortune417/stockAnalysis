@@ -358,11 +358,15 @@ process_sec_data<-function(data_dir, ticker=NULL, cik=NULL, years=NULL) {
 #' @param end_quarter End quarter in format like "2009q1". If NA, only downloads start_quarter data.
 #' @param outdir Directory to save the downloaded files. Default is "SEC".
 #' @param force Logical. If TRUE, re-download files even if they already exist. Default is FALSE.
-#' @return A vector of file paths to the downloaded zip files
+#' @param gap Number of seconds to pause between downloads. Default is 5.
+#' @return A list with two elements: 'success' (paths to successfully downloaded files) and 'failed' (URLs of failed downloads)
 #' @export
-download_sec_data <- function(start_quarter, end_quarter=NA, outdir="SEC", force=FALSE, gap=5) {
+download_sec_data <- function(start_quarter, end_quarter = NA, outdir = "SEC", force = FALSE, gap = 5) {
   # Set a user-agent to avoid being blocked by SEC servers
-  headers=c("User-Agent"='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 (Contact: zhangz.sci@gmail.com)')
+  headers = c(
+    "User-Agent" = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 (Contact: zhangz.sci@gmail.com)'
+  )
+
   # Validate start_quarter format
   if (!grepl("^\\d{4}[qQ][1-4]$", start_quarter)) {
     stop("start_quarter must be in format like '2009q1'")
@@ -384,7 +388,7 @@ download_sec_data <- function(start_quarter, end_quarter=NA, outdir="SEC", force
   parse_quarter <- function(qtr) {
     year <- as.numeric(substr(qtr, 1, 4))
     quarter <- as.numeric(substr(qtr, 6, 6))
-    return(list(year = year, quarter = quarter))
+    list(year = year, quarter = quarter)
   }
 
   start_parsed <- parse_quarter(start_quarter)
@@ -408,13 +412,17 @@ download_sec_data <- function(start_quarter, end_quarter=NA, outdir="SEC", force
     }
   }
 
-  # Download each quarter
+  # Download each quarter, track successful and failed downloads
   downloaded_files <- c()
+  failed_downloads <- c()
 
   for (quarter in quarters) {
     # Construct URL for the data set
-    url <- paste0("https://www.sec.gov/files/dera/data/financial-statement-data-sets/",
-                  tolower(quarter), ".zip")
+    url <- paste0(
+      "https://www.sec.gov/files/dera/data/financial-statement-data-sets/",
+      tolower(quarter),
+      ".zip"
+    )
 
     # Construct destination file path
     dest_file <- file.path(outdir, paste0(quarter, ".zip"))
@@ -422,20 +430,56 @@ download_sec_data <- function(start_quarter, end_quarter=NA, outdir="SEC", force
     # Check if file already exists
     if (file.exists(dest_file) && !force) {
       message("File already exists, skipping: ", dest_file)
+      downloaded_files <- c(downloaded_files, dest_file)
     } else {
       # Download the file
       message("Downloading: ", url)
-      download_file(url, destfile = dest_file, headers = headers)
-      message("Downloaded to: ", dest_file)
+      tryCatch(
+        {
+          download_file(url, destfile = dest_file, headers = headers)
+          message("Downloaded to: ", dest_file)
+          downloaded_files <- c(downloaded_files, dest_file)
+        },
+        error = function(e) {
+          warning("Failed to download: ", url, " - ", e$message)
+          failed_downloads <- c(failed_downloads, url)
+        }
+      )
     }
 
-    # Add to list of downloaded files
-    downloaded_files <- c(downloaded_files, dest_file)
     # Pause between downloads to respect SEC server
     Sys.sleep(gap)
   }
 
-  return(invisible(downloaded_files))
+  # Print summary of failed downloads
+  if (length(failed_downloads) > 0) {
+    cat("\n")
+    message("Download Summary:")
+    message("  Successful: ", length(downloaded_files))
+    message("  Failed: ", length(failed_downloads))
+    message("Failed URLs that need manual download:")
+    for (failed_url in failed_downloads) {
+      message("  - ", failed_url)
+    }
+  } else if (length(downloaded_files) > 0) {
+    message("All downloads completed successfully!")
+  }
+
+  # Ensure both success and failed are character vectors, even if empty
+  if (is.null(downloaded_files)) {
+    downloaded_files <- character(0)
+  }
+  if (is.null(failed_downloads)) {
+    failed_downloads <- character(0)
+  }
+
+  # Return both successful downloads and a list of failed URLs for reference
+  result <- list(
+    success = as.character(downloaded_files),
+    failed = as.character(failed_downloads)
+  )
+
+  return(invisible(result))
 }
 
 #' Merge SEC data across dates and forms
