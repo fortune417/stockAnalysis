@@ -348,6 +348,96 @@ process_sec_data<-function(data_dir, ticker=NULL, cik=NULL, years=NULL) {
   return(sec_data)
 }
 
+#' Download SEC financial statement data sets
+#'
+#' This function downloads SEC financial statement data sets from the SEC website.
+#' The data sets are available as quarterly zip files containing sub.txt, num.txt,
+#' tag.txt, and pre.txt files with financial statement data.
+#'
+#' @param start_quarter Start quarter in format like "2009q1"
+#' @param end_quarter End quarter in format like "2009q1". If NA, only downloads start_quarter data.
+#' @param outdir Directory to save the downloaded files. Default is "SEC".
+#' @param force Logical. If TRUE, re-download files even if they already exist. Default is FALSE.
+#' @return A vector of file paths to the downloaded zip files
+#' @export
+download_sec_data <- function(start_quarter, end_quarter=NA, outdir="SEC", force=FALSE, gap=5) {
+  # Set a user-agent to avoid being blocked by SEC servers
+  headers=c("User-Agent"='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 (Contact: zhangz.sci@gmail.com)')
+  # Validate start_quarter format
+  if (!grepl("^\\d{4}[qQ][1-4]$", start_quarter)) {
+    stop("start_quarter must be in format like '2009q1'")
+  }
+
+  # If end_quarter is provided, validate it
+  if (!is.na(end_quarter)) {
+    if (!grepl("^\\d{4}[qQ][1-4]$", end_quarter)) {
+      stop("end_quarter must be in format like '2009q1'")
+    }
+  }
+
+  # Create output directory if it doesn't exist
+  if (!dir.exists(outdir)) {
+    dir.create(outdir, recursive = TRUE)
+  }
+
+  # Parse quarters to extract year and quarter
+  parse_quarter <- function(qtr) {
+    year <- as.numeric(substr(qtr, 1, 4))
+    quarter <- as.numeric(substr(qtr, 6, 6))
+    return(list(year = year, quarter = quarter))
+  }
+
+  start_parsed <- parse_quarter(start_quarter)
+  end_parsed <- if (!is.na(end_quarter)) parse_quarter(end_quarter) else start_parsed
+
+  # Generate list of quarters to download
+  quarters <- c()
+
+  # Generate all quarters between start and end
+  current_year <- start_parsed$year
+  current_qtr <- start_parsed$quarter
+
+  while (current_year < end_parsed$year || (current_year == end_parsed$year && current_qtr <= end_parsed$quarter)) {
+    quarters <- c(quarters, paste0(current_year, "q", current_qtr))
+
+    # Increment to next quarter
+    current_qtr <- current_qtr + 1
+    if (current_qtr > 4) {
+      current_qtr <- 1
+      current_year <- current_year + 1
+    }
+  }
+
+  # Download each quarter
+  downloaded_files <- c()
+
+  for (quarter in quarters) {
+    # Construct URL for the data set
+    url <- paste0("https://www.sec.gov/files/dera/data/financial-statement-data-sets/",
+                  tolower(quarter), ".zip")
+
+    # Construct destination file path
+    dest_file <- file.path(outdir, paste0(quarter, ".zip"))
+
+    # Check if file already exists
+    if (file.exists(dest_file) && !force) {
+      message("File already exists, skipping: ", dest_file)
+    } else {
+      # Download the file
+      message("Downloading: ", url)
+      download_file(url, destfile = dest_file, headers = headers)
+      message("Downloaded to: ", dest_file)
+    }
+
+    # Add to list of downloaded files
+    downloaded_files <- c(downloaded_files, dest_file)
+    # Pause between downloads to respect SEC server
+    Sys.sleep(gap)
+  }
+
+  return(invisible(downloaded_files))
+}
+
 #' Merge SEC data across dates and forms
 #'
 #' This function merges SEC financial data across different dates and forms

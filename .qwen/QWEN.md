@@ -19,6 +19,7 @@ This is an R package repository to accomplishe the following goals:
 
 ### Phase 1: Data Processing and Ingestion
 1. **Enhance SEC data processing**
+   - write functions to download data from SEC website, and the zip file url is like https://www.sec.gov/files/dera/data/financial-statement-data-sets/2009q1.zip, for 2009 Q1 data.
    - Implement functions to read and parse SEC structured financial statement datasets provided by SEC, like the data in the SEC folder. This has higher priority.
    - Alternatively, we can develop tools to process xbrl data, like submissions.zip, companyfacts.zip; but this has lower priority.
    - Create functions to extract financial data from different forms (10-K, 10-Q, etc.)
@@ -29,6 +30,7 @@ This is an R package repository to accomplishe the following goals:
    - Define standardized data structures for financial statements
    - Create functions to convert SEC raw data to standardized format
    - Ensure efficient handling of large datasets
+   - The standardized data can be stored into a database (sqlite3) or R data frames for easy access and manipulation
 
 ### Phase 2: Financial Analysis Functions
 3. **Expand financial ratio calculations**
